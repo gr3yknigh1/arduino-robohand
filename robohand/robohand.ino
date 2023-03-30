@@ -1,6 +1,5 @@
 #include <Servo.h>
 
-
 #define MAX_DEGREE 180
 #define MAX_CLAW_DEGREE 120
 #define MIN_DEGREE 0
@@ -10,15 +9,6 @@
 
 #define MAX_DELTA 1
 #define MIN_DELTA -1
-
-#ifndef A0
-# define A0 0
-# define A1 1
-# define A2 2
-# define A3 3
-# define A4 4
-# define A5 5
-#endif
 
 #ifndef D2
 # define D2 2
@@ -41,77 +31,71 @@ float mapf(float x, float in_min, float in_max, float out_min, float out_max) {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
-g
+
 Servo servo_base;
 Servo servo_hand_0;
 Servo servo_hand_1;
 Servo servo_hand_2;
 Servo servo_claw;
 
-float speed = 2;
-float threshold = 0.3;
+float speed = 4;
+float threshold = 0.6;
 float delta;
 
 float sb_pos;
-short sb_dir = -1;
-float sb_mod = 1;
+float sb_mod = -1;
 
 float sh0_pos;
-short sh0_dir = -1;
-float sh0_mod = 1;
+float sh0_mod = -1;
 
 float sh1_pos;
-short sh1_dir = -1;
-float sh1_mod = 0.7;
+float sh1_mod = -0.7;
 
 float sh2_pos;
-short sh2_dir = -1;
-float sh2_mod = 1;
+float sh2_mod = -1;
 
 float sc_pos;
-short sc_dir = 1;
 float sc_mod = 1;
-
-bool sc_is_open = false;
 
 
 void setup(void) {
   Serial.begin(9600);
 
   servo_base.attach(D2);
-  servo_base.write(93);
-  
   servo_hand_0.attach(D3);
-  servo_hand_0.write(93);
-  
   servo_hand_1.attach(D5);
-  servo_hand_1.write(93);
-  
   servo_hand_2.attach(D6);
-  servo_hand_2.write(93);
-
-  
   servo_claw.attach(D7);
+  
+  servo_base.write(93);
+  servo_hand_0.write(93);
+  servo_hand_1.write(93);
+  servo_hand_2.write(93);
   servo_claw.write(130); // 150 - max, 140 - mid, 120 - min
 }
 
 
-#define SERV_UPDATE(serv, AP, pos, spd, dir, mod, min_degree, max_degree) \
+#define SERV_UPDATE(__servo, __analogPin, __position, __speed, __modifier, __minDegree, __maxDegree, __threshold) \
   do { \
-    float delta = analogRead(AP); \
+    float delta = analogRead(__analogPin); \
     delta = clampf(MIN_JOYSTICK, delta, MAX_JOYSTICK); \
     delta = mapf(delta, MIN_JOYSTICK, MAX_JOYSTICK, MIN_DELTA, MAX_DELTA); \
     delta = round(delta * 10.0) / 10.0; \
-    pos = clampf(min_degree, pos + (spd * delta * dir * mod), max_degree); \
-    serv.write((int)pos); \
+    if (abs(delta) <= __threshold) \
+      delta = 0; \
+    if (delta != 0) \
+      delta = delta > 0 ? 1 : -1; \
+    Serial.println(delta); \
+    __position = clampf(__minDegree, __position + (__speed * delta * __modifier), __maxDegree); \
+    __servo.write((int)__position); \
   } while(0)
 
 
 void loop(void) {
-  SERV_UPDATE(servo_base, A0, sb_pos, speed, sb_dir, sb_mod, MIN_DEGREE, MAX_DEGREE);
-  SERV_UPDATE(servo_hand_0, A2, sh0_pos, speed, sh0_dir, sh0_mod, MIN_DEGREE, MAX_DEGREE);
-  SERV_UPDATE(servo_hand_1, A2, sh1_pos, speed, sh1_dir, sh1_mod, MIN_DEGREE, MAX_DEGREE);
-  SERV_UPDATE(servo_hand_2, A3, sh2_pos, speed, sh2_dir, sh2_mod, MIN_DEGREE, MAX_DEGREE);
-  SERV_UPDATE(servo_claw, A1, sc_pos, speed, sc_dir, sc_mod, MIN_DEGREE, MAX_DEGREE);
+  SERV_UPDATE(servo_base, A0, sb_pos, speed, sb_mod, MIN_DEGREE, MAX_DEGREE, threshold);
+  SERV_UPDATE(servo_hand_0, A2, sh0_pos, speed, sh0_mod, MIN_DEGREE, MAX_DEGREE, threshold);
+  SERV_UPDATE(servo_hand_1, A2, sh1_pos, speed, sh1_mod, MIN_DEGREE, MAX_DEGREE, threshold);
+  SERV_UPDATE(servo_hand_2, A3, sh2_pos, speed, sh2_mod, MIN_DEGREE, MAX_DEGREE, threshold);
+  SERV_UPDATE(servo_claw, A1, sc_pos, speed, sc_mod, 120, 150, threshold);
   delay(10);
 }
